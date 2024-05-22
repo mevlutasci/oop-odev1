@@ -1,0 +1,155 @@
+from datetime import datetime
+import json
+
+# JSON dosyasını okuma fonksiyonu
+def load_data():
+    with open('db.json', 'r') as file:
+        return json.load(file)
+
+# JSON dosyasına yazma fonksiyonu
+def save_data(data):
+    with open('db.json', 'w') as file:
+        json.dump(data, file, indent=4)
+
+# Araç girişi fonksiyonu
+def vehicle_entry(license_plate):
+    entry_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    data = load_data()
+    data['vehicles'].append({
+        'license_plate': license_plate,
+        'entry_time': entry_time,
+        'exit_time': None
+    })
+    save_data(data)
+
+# Araç çıkışı fonksiyonu
+def vehicle_exit(license_plate):
+    exit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    data = load_data()
+    for vehicle in data['vehicles']:
+        if vehicle['license_plate'] == license_plate and vehicle['exit_time'] is None:
+            vehicle['exit_time'] = exit_time
+            break
+    save_data(data)
+
+
+
+
+class Arac:
+    def __init__(self, plaka, tip):
+        self.plaka = plaka
+        self.tip = tip
+
+# Araç türleri. Hepsi tek tek Arac sınıfından kalıtım alıyor.
+
+class Araba(Arac):
+    def __init__(self, plaka):
+        super().__init__(plaka, "Araba")
+        
+class Motor(Arac):
+    def __init__(self, plaka):
+        super().__init__(plaka, "Motor")
+        
+class Kamyon(Arac):
+    def __init__(self, plaka):
+        super().__init__(plaka, "Kamyon")
+
+
+class ParkYeri:
+    def __init__(self, yer_id):
+        self.yer_id = yer_id
+        self.arac = None
+        self.giris_zamani = None
+
+    def aracGirisi1(self, arac):
+        if self.arac is None:
+            self.arac = arac
+            self.giris_zamani = datetime.now()
+            return True
+        else:
+            return False
+        
+    def aracCikisi1(self):
+        self.arac = None
+        self.giris_zamani = None
+
+    def bosMu(self):
+        bosmu = self.arac is None
+        return bosmu
+
+
+class Otopark:
+    def __init__(self, parkyeri):
+        self.yerler = [ParkYeri(i) for i in range(parkyeri)]
+        self.ucretlendirme = {
+            "Araba" : 20,
+            "Motor" : 10,
+            "Kamyon" : 50
+        }
+
+    def aracGirisi(self, arac):
+        self.arac = arac
+        for yer in self.yerler:
+            if yer.bosMu():
+                if yer.aracGirisi1(arac):
+                    vehicle_entry(yer.arac.plaka)
+                    print("Araç girişi...")
+                    return f"Araç {yer.yer_id} nolu alana parkedildi."
+        return "Park alanları dolu."
+    
+    def aracCikisi(self, plaka):
+        for yer in self.yerler:
+            if yer.arac and yer.arac.plaka == plaka:
+                park_suresi = datetime.now() - yer.giris_zamani
+                saat = park_suresi.total_seconds() // 3600
+                tutar = self.ucretlendirme[yer.arac.tip] * saat
+                vehicle_exit(yer.arac.plaka)
+                print("Araç çıkışı...")
+                yer.aracCikisi1()
+                return f"{plaka} plakalı araç otoparktan çıkıyor. Toplam süre {saat} ve ücret : {tutar}"
+        return f"{plaka} plakalı bir araç otoparkta yok!"
+
+
+def main():
+    otopark = Otopark(5)
+
+    while True:
+        print("\nOtopark Kayıt Sistemi")
+        print("1. Araç Girişi")
+        print("2. Araç Çıkışı")
+        print("3. Listele")
+        print("4. Çıkış")
+        
+        secenek = input("Bir seçenek seçiniz : ")
+
+        if secenek == '1':
+            arac_turu = input("Araç türünü girin (Araba/Motor/Kamyon) : ")
+            plaka = input("Araç plakasını girin : ")
+            
+            if arac_turu == "Araba":
+                arac = Araba(plaka)
+            elif arac_turu == "Motor":
+                arac = Motor(plaka)
+            elif arac_turu == "Kamyon":
+                arac = Kamyon(plaka)
+            else:
+                print("Yanlış girdiniz.")
+                continue
+            
+            print(otopark.aracGirisi(arac))
+        
+        elif secenek == '2':
+            plaka = input("Plakayı giriniz : ")
+            print(otopark.aracCikisi(plaka))
+        
+        elif secenek == '3':
+            print(load_data())
+        
+        elif secenek == '4':
+            break
+        
+        else:
+            print("Geçersiz seçim. Tekrar deneyiniz.")
+
+if __name__ == "__main__":
+    main()
